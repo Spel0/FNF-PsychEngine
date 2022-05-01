@@ -1447,6 +1447,24 @@ class ChartingState extends MusicBeatState
 		return daPos;
 	}
 
+	function sectionEndTime(add:Int = 0):Float
+		{
+			var daBPM:Float = _song.bpm;
+			var daPos:Float = 0;
+			for (i in 0...curSection + add + 1)
+			{
+				if(_song.notes[i] != null)
+				{
+					if (_song.notes[i].changeBPM)
+					{
+						daBPM = _song.notes[i].bpm;
+					}
+					daPos += 4 * (1000 * 60 / daBPM);
+				}
+			}
+			return daPos;
+		}
+
 	var lastConductorPos:Float;
 	var colorSine:Float = 0;
 	override function update(elapsed:Float)
@@ -2318,6 +2336,7 @@ class ChartingState extends MusicBeatState
 		// CURRENT SECTION
 		for (i in _song.notes[curSection].sectionNotes)
 		{
+			if (i[0] < sectionStartTime() || i[0] > sectionEndTime()) continue;
 			var note:Note = setupNoteData(i, false);
 			curRenderedNotes.add(note);
 			if (note.sustainLength > 0)
@@ -2325,12 +2344,15 @@ class ChartingState extends MusicBeatState
 				curRenderedSustains.add(setupSusNote(note));
 			}
 
-			if(note.y < -150) note.y = -150;
+			if (note.y < -150)
+				note.y = -150;
 
-			if(i[3] != null && note.noteType != null && note.noteType.length > 0) {
+			if (i[3] != null && note.noteType != null && note.noteType.length > 0)
+			{
 				var typeInt:Null<Int> = noteTypeMap.get(i[3]);
 				var theType:String = '' + typeInt;
-				if(typeInt == null) theType = '?';
+				if (typeInt == null)
+					theType = '?';
 
 				var daText:AttachedFlxText = new AttachedFlxText(0, 0, 100, theType, 24);
 				daText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
@@ -2341,7 +2363,49 @@ class ChartingState extends MusicBeatState
 				daText.sprTracker = note;
 			}
 			note.mustPress = _song.notes[curSection].mustHitSection;
-			if(i[1] > 3) note.mustPress = !note.mustPress;
+			if (i[1] > 3)
+				note.mustPress = !note.mustPress;
+		}
+		// Arrow Vortex Fix
+		for (k => j in _song.notes)
+		{
+			if (k != curSection)
+			{
+				for (i in j.sectionNotes)
+				{
+					if (i[0] >= sectionStartTime() - 1 && i[0] < sectionEndTime())
+					{
+						var note:Note = setupNoteData(i, false);
+						curRenderedNotes.add(note);
+						if (note.sustainLength > 0)
+						{
+							curRenderedSustains.add(setupSusNote(note));
+						}
+
+						if (note.y < -150)
+							note.y = -150;
+
+						if (i[3] != null && note.noteType != null && note.noteType.length > 0)
+						{
+							var typeInt:Null<Int> = noteTypeMap.get(i[3]);
+							var theType:String = '' + typeInt;
+							if (typeInt == null)
+								theType = '?';
+
+							var daText:AttachedFlxText = new AttachedFlxText(0, 0, 100, theType, 24);
+							daText.setFormat(Paths.font("vcr.ttf"), 24, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+							daText.xAdd = -32;
+							daText.yAdd = 6;
+							daText.borderSize = 1;
+							curRenderedNoteType.add(daText);
+							daText.sprTracker = note;
+						}
+						note.mustPress = _song.notes[curSection].mustHitSection;
+						if (i[1] > 3)
+							note.mustPress = !note.mustPress;
+					}
+				}
+			}
 		}
 
 		// CURRENT EVENTS
@@ -2371,15 +2435,37 @@ class ChartingState extends MusicBeatState
 		}
 
 		// NEXT SECTION
-		if(curSection < _song.notes.length-1) {
-			for (i in _song.notes[curSection+1].sectionNotes)
+		if (curSection < _song.notes.length - 1)
+		{
+			for (i in _song.notes[curSection + 1].sectionNotes)
 			{
+				if (i[0] < sectionStartTime(1) || i[0] > sectionEndTime(1)) continue;
 				var note:Note = setupNoteData(i, true);
 				note.alpha = 0.6;
 				nextRenderedNotes.add(note);
 				if (note.sustainLength > 0)
 				{
 					nextRenderedSustains.add(setupSusNote(note));
+				}
+			}
+			// Arrow Vortex Fix Part 2
+			for (k => j in _song.notes)
+			{
+				if (k != curSection + 1)
+				{
+					for (i in j.sectionNotes)
+					{
+						if (i[0] >= sectionStartTime(1) && i[0] < sectionEndTime(1))
+						{
+							var note:Note = setupNoteData(i, true);
+							note.alpha = 0.6;
+							nextRenderedNotes.add(note);
+							if (note.sustainLength > 0)
+							{
+								nextRenderedSustains.add(setupSusNote(note));
+							}
+						}
+					}
 				}
 			}
 		}
@@ -2495,7 +2581,25 @@ class ChartingState extends MusicBeatState
 				if (i != curSelectedNote && i.length > 2 && i[0] == note.strumTime && i[1] == noteDataToCheck)
 				{
 					curSelectedNote = i;
-					break;
+					return;
+				}
+			}
+			// Arrow Vortex Fix Part 3
+			for (k => j in _song.notes)
+			{
+				if (k != curSection)
+				{
+					for (i in j.sectionNotes)
+					{
+						if (i[0] >= sectionStartTime() && i[0] <= sectionEndTime())
+						{
+							if (i != curSelectedNote && i.length > 2 && i[0] == note.strumTime && i[1] == noteDataToCheck)
+							{
+								curSelectedNote = i;
+								return;
+							}
+						}
+					}
 				}
 			}
 		}
